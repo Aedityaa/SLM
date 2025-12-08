@@ -92,3 +92,24 @@ async def health_check():
         "tools_enabled": True,
         "available_tools": list(solver.get_available_tools().keys()) if solver else []
     }
+
+# Add this model in api/server.py
+class BatchSolveRequest(BaseModel):
+    problems: List[str]
+    max_tokens: int = 512
+
+@app.post("/solve-batch")
+async def solve_batch(request: BatchSolveRequest):
+    """Batch process multiple math problems"""
+    results = []
+    for problem in request.problems:
+        try:
+            result = solver.solve(problem=problem, max_tokens=request.max_tokens)
+            results.append(result)
+        except Exception:
+            results.append({"problem": problem, "error": "Failed to solve"})
+            
+    return {
+        "count": len(results),
+        "results": results
+    }
