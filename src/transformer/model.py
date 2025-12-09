@@ -30,7 +30,7 @@ class MathTransformerModel:
         # Load base model
         self.base_model = AutoModelForCausalLM.from_pretrained(
             base_model_id,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             trust_remote_code=True,
             device_map="auto" if torch.cuda.is_available() else None
         )
