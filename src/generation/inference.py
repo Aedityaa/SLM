@@ -5,7 +5,7 @@ from src.generation.generator import MathGenerator
 from src.generation.prompts import PromptTemplate
 from src.input_processing import UniversalMathInputProcessor
 from src.output.formatter import OutputFormatter
-from src.tools import tool_registry
+from src.tools.tool_registry import tool_registry
 
 class MathSolverInference:
     """Complete inference pipeline with tool calling"""
