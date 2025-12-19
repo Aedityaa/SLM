@@ -10,7 +10,7 @@ class MathTransformerModel:
     def __init__(
         self, 
         base_model_id="Qwen/Qwen2.5-Math-1.5B-Instruct",
-        lora_adapter_path=None,  # Path to your fine-tuned LoRA weights
+        lora_adapter_path="./lora_weights",  # Path to your fine-tuned LoRA weights
         device=None
     ):
         self.base_model_id = base_model_id
@@ -30,7 +30,7 @@ class MathTransformerModel:
         # Load base model
         self.base_model = AutoModelForCausalLM.from_pretrained(
             base_model_id,
-            dtype=torch.bfloat16,
+            torch_dtype=torch.bfloat16,
             trust_remote_code=True,
             device_map="auto" if torch.cuda.is_available() else None
         )
