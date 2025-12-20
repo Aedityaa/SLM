@@ -6,6 +6,7 @@ class OCRParser:
     """Optical Character Recognition for math notation"""
     
     def __init__(self):
+        pytesseract.pytesseract.tesseract_cmd = r'C:\Users\mappr\AppData\Local\Programs\Tesseract-OCR\tesseract.exe'
         self.config = r'--oem 3 --psm 6'
     
     def ocr_math_advanced(self, image):

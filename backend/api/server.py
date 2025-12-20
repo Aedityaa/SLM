@@ -1,20 +1,21 @@
-"""FastAPI server with tool support"""
+import logging
+import os
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, Dict
-import os
+import uvicorn
 from dotenv import load_dotenv
 
-from src.generation.inference import MathSolverInference
+from src.agent.core import MathAgent
 
 load_dotenv()
 
-app = FastAPI(
-    title="Math Solver API with Tools",
-    description="AI-powered mathematical problem solver with tool calling support",
-    version="2.0.0"
-)
+# Logging setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Math Solver Agent API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,92 +25,56 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-LORA_PATH = os.getenv("LORA_ADAPTER_PATH", "./models/lora_adapter")
-solver = None
+# Global Agent
+agent = None
 
 @app.on_event("startup")
 async def startup_event():
-    global solver
-    print("🚀 Starting Math Solver API with Tools...")
-    solver = MathSolverInference(
-        lora_adapter_path=LORA_PATH if os.path.exists(LORA_PATH) else None,
-        enable_tools=True
-    )
-    print("✅ API Ready with Tools!")
+    global agent
+    logger.info("🚀 Initializing Math Agent...")
+    try:
+        agent = MathAgent()
+        logger.info("✅ Math Agent initialized!")
+    except Exception as e:
+        logger.error(f"❌ Failed to start agent: {e}")
 
+# Simple Request Model (No Files)
 class SolveRequest(BaseModel):
     problem: str
-    system_prompt: str = "with_tools"
-    max_tokens: int = 512
-    temperature: float = 0.7
-    use_tools: bool = True
-
-class SolveResponse(BaseModel):
-    problem: str
-    solution: str
-    formatted: str
-    final_answer: Optional[str]
-    tool_calls: List[Dict]
-    tools_used: bool
+    max_tokens: Optional[int] = 2048
+    temperature: Optional[float] = 0.7
 
 @app.get("/")
 async def root():
-    return {
-        "status": "healthy",
-        "service": "Math Solver API with Tools",
-        "version": "2.0.0",
-        "tools_enabled": True
-    }
+    return {"status": "healthy", "service": "Math Solver Agent API"}
 
-@app.post("/solve", response_model=SolveResponse)
+@app.post("/solve")
 async def solve_problem(request: SolveRequest):
-    """Solve a math problem with optional tool calling"""
+    global agent
+    if not agent:
+        raise HTTPException(status_code=500, detail="Agent not initialized")
+    
     try:
-        result = solver.solve(
-            problem=request.problem,
-            system_prompt=request.system_prompt,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature,
-            use_tools=request.use_tools
-        )
-        return SolveResponse(**result)
+        logger.info(f"📩 Received input: {request.problem}")
+        
+        # Run Agent directly with text
+        response_text = agent.run(request.problem, max_tokens=request.max_tokens)
+        
+        return {"response": response_text}
+
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/reset")
+async def reset_memory():
+    global agent
+    try:
+        agent = MathAgent()
+        logger.info("🧹 Agent memory wiped!")
+        return {"status": "memory_cleared"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/tools")
-async def list_tools():
-    """List all available tools"""
-    return {
-        "tools": solver.get_available_tools()
-    }
-
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "model_loaded": solver is not None,
-        "lora_loaded": os.path.exists(LORA_PATH),
-        "tools_enabled": True,
-        "available_tools": list(solver.get_available_tools().keys()) if solver else []
-    }
-
-# Add this model in api/server.py
-class BatchSolveRequest(BaseModel):
-    problems: List[str]
-    max_tokens: int = 512
-
-@app.post("/solve-batch")
-async def solve_batch(request: BatchSolveRequest):
-    """Batch process multiple math problems"""
-    results = []
-    for problem in request.problems:
-        try:
-            result = solver.solve(problem=problem, max_tokens=request.max_tokens)
-            results.append(result)
-        except Exception:
-            results.append({"problem": problem, "error": "Failed to solve"})
-            
-    return {
-        "count": len(results),
-        "results": results
-    }
+if __name__ == "__main__":
+    uvicorn.run("api.server:app", host="0.0.0.0", port=8000, reload=True)

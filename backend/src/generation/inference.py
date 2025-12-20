@@ -7,6 +7,12 @@ from src.input_processing import UniversalMathInputProcessor
 from src.output.formatter import OutputFormatter
 from src.tools.tool_registry import tool_registry
 
+# --- NEW: Import the specific tools ---
+from src.tools.symbolic.sympy_solver import SymPySolver
+from src.tools.numerical.numpy_calculator import NumpyCalculator
+from src.tools.visualization.matplotlib_plotter import MatplotlibPlotter
+from src.tools.execution.code_executor import CodeExecutor
+
 class MathSolverInference:
     """Complete inference pipeline with tool calling"""
     
@@ -28,7 +34,15 @@ class MathSolverInference:
         self.output_formatter = OutputFormatter()
         self.enable_tools = enable_tools
         
+        # --- NEW: Register the tools if enabled ---
         if enable_tools:
+            print("⚙️  Registering tools...")
+            # We must manually register each tool we want the Agent to use
+            tool_registry.register(SymPySolver())
+            tool_registry.register(NumpyCalculator())
+            tool_registry.register(MatplotlibPlotter())
+            tool_registry.register(CodeExecutor())
+            
             print(f"🔧 Tools enabled: {list(tool_registry.list_tools().keys())}")
         
         print("✅ Math Solver initialized and ready!")
@@ -36,7 +50,7 @@ class MathSolverInference:
     def solve(
         self,
         problem: str,
-        system_prompt: str = "with_tools" if True else "default",
+        system_prompt: str = "step_by_step" if True else "default",
         max_tokens: int = 512,
         temperature: float = 0.7,
         use_tools: bool = None,

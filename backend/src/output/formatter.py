@@ -30,3 +30,14 @@ class OutputFormatter:
         # 3. Fallback to the last sentence
         sentences = text.split('.')
         return sentences[-1].strip() if sentences else "Unknown"
+
+def clean_latex(text: str) -> str:
+    """Standalone function to clean LaTeX delimiters for the Agent"""
+    if not text: return ""
+    # Convert \[ \] to $$ $$
+    text = re.sub(r'\\\[', '$$', text)
+    text = re.sub(r'\\\]', '$$', text)
+    # Convert \( \) to $ $
+    text = re.sub(r'\\\(', '$', text)
+    text = re.sub(r'\\\)', '$', text)
+    return text
