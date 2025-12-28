@@ -1,3 +1,4 @@
+import os
 """Main inference pipeline with tool support"""
 from typing import Dict, List, Optional
 from src.transformer.model import MathTransformerModel
@@ -8,10 +9,11 @@ from src.output.formatter import OutputFormatter
 from src.tools.tool_registry import tool_registry
 
 # --- NEW: Import the specific tools ---
-from src.tools.symbolic.sympy_solver import SymPySolver
-from src.tools.numerical.numpy_calculator import NumpyCalculator
-from src.tools.visualization.matplotlib_plotter import MatplotlibPlotter
-from src.tools.execution.code_executor import CodeExecutor
+from src.tools.sympy_solver import SymPySolver
+from src.tools.numpy_calculator import NumpyCalculator
+from src.tools.matplotlib_plotter import MatplotlibPlotter
+from src.tools.code_executor import CodeExecutor
+from src.tools.wolfram_alpha import WolframAlphaTool
 
 class MathSolverInference:
     """Complete inference pipeline with tool calling"""
@@ -19,11 +21,14 @@ class MathSolverInference:
     def __init__(
         self,
         base_model_id: str = "Qwen/Qwen2.5-Math-1.5B-Instruct",
-        lora_adapter_path: Optional[str] = None,
-        enable_tools: bool = True
+        lora_adapter_path: str = "D:\Coding\CNA-SLM\SLM\backend\models\lora_adapter\adapter_model.safetensors",
+        enable_tools: bool = True,
+        enable_wolfram: bool = False,
+        wolfram_api_key: str = None
     ):
         print("🚀 Initializing Math Solver Pipeline...")
-        
+        if wolfram_api_key is None:
+            wolfram_api_key = os.getenv('WOLFRAM_API_KEY')
         # Initialize components
         self.input_processor = UniversalMathInputProcessor()
         self.model_wrapper = MathTransformerModel(
@@ -33,6 +38,7 @@ class MathSolverInference:
         self.generator = MathGenerator(self.model_wrapper)
         self.output_formatter = OutputFormatter()
         self.enable_tools = enable_tools
+        self.enable_wolfram = enable_wolfram
         
         # --- NEW: Register the tools if enabled ---
         if enable_tools:
@@ -42,6 +48,17 @@ class MathSolverInference:
             tool_registry.register(NumpyCalculator())
             tool_registry.register(MatplotlibPlotter())
             tool_registry.register(CodeExecutor())
+
+            if enable_wolfram:
+                if wolfram_api_key:
+                    tool_registry.register(WolframAlphaTool(app_id=wolfram_api_key))
+                    print("✅ Wolfram Alpha enabled")
+                else:
+                    print("⚠️  Wolfram Alpha enabled but no API key provided")
+                    print("   Set wolfram_api_key parameter or get key at:")
+                    print("   https://products.wolframalpha.com/api/")
+            else:
+                print("ℹ️  Wolfram Alpha disabled")
             
             print(f"🔧 Tools enabled: {list(tool_registry.list_tools().keys())}")
         
@@ -50,7 +67,7 @@ class MathSolverInference:
     def solve(
         self,
         problem: str,
-        system_prompt: str = "step_by_step" if True else "default",
+        system_prompt: str = None,
         max_tokens: int = 512,
         temperature: float = 0.7,
         use_tools: bool = None,
@@ -58,8 +75,9 @@ class MathSolverInference:
     ) -> Dict:
         """Solve a math problem with optional tool calling"""
         
-        # Determine if tools should be used
         use_tools = use_tools if use_tools is not None else self.enable_tools
+        if system_prompt is None:
+            system_prompt = "with_tools" if use_tools else "step_by_step"
         
         # 1. Process input
         processed_problem = self.input_processor.process(problem)

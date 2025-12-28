@@ -1,5 +1,4 @@
 """LaTeX parsing and conversion utilities"""
-
 class LaTeXParser:
     """Converts LaTeX mathematical notation to plain text"""
     

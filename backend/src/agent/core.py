@@ -1,18 +1,27 @@
 import json
 import re
+import os
 from langchain.memory import ConversationBufferWindowMemory
 from src.input_processing.router import get_router_chain
 from src.generation.inference import MathSolverInference
 from src.output.formatter import clean_latex
 
 class MathAgent:
-    def __init__(self):
+    def __init__(self, enable_tools=True, enable_wolfram=False, wolfram_api_key=None):
         # We use return_messages=False so we get a string history, not objects
         self.memory = ConversationBufferWindowMemory(k=3, return_messages=False)
         self.router = get_router_chain()
-        self.worker = MathSolverInference() 
+        if wolfram_api_key is None:
+            wolfram_api_key = os.getenv('WOLFRAM_API_KEY')
+        self.worker = MathSolverInference(
+            enable_tools=enable_tools,
+            enable_wolfram=enable_wolfram,
+            wolfram_api_key=wolfram_api_key
+        )
+        self.enable_tools = enable_tools 
+        self.enable_wolfram = enable_wolfram
 
-    def run(self, user_input, max_tokens=2048):
+    def run(self, user_input, max_tokens=2048, use_tools=None):
         print(f"🧠 Agent processing: {user_input}")
         
       
@@ -51,7 +60,9 @@ class MathAgent:
             # Use the REFINED content (which has the full context)
             result_dict = self.worker.solve(
                 decision['content'],
-                max_tokens=max_tokens 
+                system_prompt="with_tools" if use_tools else "step_by_step",  
+                max_tokens=max_tokens,
+                use_tools=use_tools
             )
             raw_math = result_dict['solution'] 
             

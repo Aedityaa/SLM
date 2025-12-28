@@ -70,7 +70,7 @@ async def solve_problem(request: SolveRequest):
 async def reset_memory():
     global agent
     try:
-        agent = MathAgent()
+        agent = MathAgent() #if you want wolfram, add enable_wolfram=True, wolfram_api_key=os.getenv('WOLFRAM_API_KEY')
         logger.info("🧹 Agent memory wiped!")
         return {"status": "memory_cleared"}
     except Exception as e:
