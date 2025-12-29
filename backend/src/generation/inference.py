@@ -20,8 +20,8 @@ class MathSolverInference:
     
     def __init__(
         self,
-        base_model_id: str = "Qwen/Qwen2.5-Math-1.5B-Instruct",
-        lora_adapter_path: str = "D:\Coding\CNA-SLM\SLM\backend\models\lora_adapter\adapter_model.safetensors",
+        base_model_id: str = "Qwen/Qwen2.5-Math-1.5B",
+        lora_adapter_path: str = "D:/Coding/CNA-SLM/SLM/backend/models/lora_adapter",
         enable_tools: bool = True,
         enable_wolfram: bool = False,
         wolfram_api_key: str = None
