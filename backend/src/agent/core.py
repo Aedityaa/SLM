@@ -7,7 +7,7 @@ from src.generation.inference import MathSolverInference
 from src.output.formatter import clean_latex
 
 class MathAgent:
-    def __init__(self, enable_tools=True, enable_wolfram=False, wolfram_api_key=None):
+    def __init__(self, enable_tools=True, enable_wolfram=True, wolfram_api_key=os.getenv('WOLFRAM_API_KEY')):
         # We use return_messages=False so we get a string history, not objects
         self.memory = ConversationBufferWindowMemory(k=3, return_messages=False)
         self.router = get_router_chain()

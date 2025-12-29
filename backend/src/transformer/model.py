@@ -9,8 +9,8 @@ class MathTransformerModel:
     
     def __init__(
         self, 
-        base_model_id="Qwen/Qwen2.5-Math-1.5B",
-        lora_adapter_path="./lora_weights",  # Path to your fine-tuned LoRA weights
+        base_model_id="Qwen/Qwen2.5-Math-1.5B-Instruct",
+        lora_adapter_path=".\models\lora_adapter",  # Path to your fine-tuned LoRA weights
         device=None
     ):
         self.base_model_id = base_model_id
