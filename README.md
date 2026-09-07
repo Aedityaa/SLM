@@ -243,9 +243,3 @@ npm run preview  # Preview production build
 - **Memory Reset**: Automatically resets backend memory on page load
 
 ---
-
-## 👥 Contributors
-
-- **Aditya Parate**
-- **Ansh Agarwal**
-- **Prakhar Gupta**
