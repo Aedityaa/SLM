@@ -1,4 +1,5 @@
 """Universal input processor that handles all modalities"""
+import re
 from .latex_parser import LaTeXParser
 from .ocr_parser import OCRParser
 from .speech_processor import SpeechProcessor
@@ -25,7 +26,14 @@ class UniversalMathInputProcessor:
             return self.process_text(input_data)
         
         elif input_type == "latex":
-            return self.latex_parser.parse_latex(input_data)
+            # Run the same unicode/whitespace normalization plain text
+            # gets, in addition to LaTeX-specific conversion -- previously
+            # latex-classified input skipped normalize_unicode/
+            # clean_whitespace entirely, so things like doubled spaces or
+            # stray unicode math symbols passed straight through untouched.
+            cleaned = self.text_cleaner.normalize_unicode(input_data)
+            cleaned = self.text_cleaner.clean_whitespace(cleaned)
+            return self.latex_parser.parse_latex(cleaned)
         
         elif input_type == "image":
             text = self.ocr_parser.ocr_math_advanced(input_data)
@@ -58,7 +66,7 @@ class UniversalMathInputProcessor:
                 return "pdf"
             elif data.endswith(('.wav', '.mp3', '.ogg')):
                 return "audio"
-            elif '\\' in data or '$' in data:
+            elif self._looks_like_latex(data):
                 return "latex"
             else:
                 return "text"
@@ -67,6 +75,29 @@ class UniversalMathInputProcessor:
         else:
             return "unknown"
     
+    def _looks_like_latex(self, text):
+        """Decide whether text contains real LaTeX, as opposed to just
+        happening to contain a backslash or dollar sign.
+
+        The previous check (`'\\' in data or '$' in data`) misrouted very
+        common inputs -- e.g. any word problem mentioning money ("a shirt
+        costs $20") -- into the LaTeX path, which skips normal text
+        cleaning and (before this fix) barely understood real LaTeX either.
+        This version requires either:
+          - an actual LaTeX command (backslash + letters, e.g. \\frac,
+            \\sqrt, \\int), or
+          - a $...$ / $$...$$ math delimiter pair whose content isn't just
+            a plain dollar amount (a lone '$' followed by a digit, as in
+            "$20", is almost always money, not opening math mode).
+        """
+        if re.search(r'\\[a-zA-Z]+', text):
+            return True
+        if re.search(r'\$\$.+?\$\$', text, re.DOTALL):
+            return True
+        if re.search(r'\$(?!\d)[^$\n]+\$', text):
+            return True
+        return False
+
     def process_text(self, text):
         """Process plain text input"""
         text = self.text_cleaner.normalize_unicode(text)
