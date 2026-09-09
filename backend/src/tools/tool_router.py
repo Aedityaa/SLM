@@ -1,4 +1,5 @@
 """Routes tool calls to appropriate tools"""
+import json
 import re
 from typing import Dict, Any, Optional
 from src.tools.tool_registry import tool_registry
@@ -9,8 +10,58 @@ class ToolRouter:
     def __init__(self):
         self.tool_call_pattern = r'<tool_call>(.*?)</tool_call>'
         self.tool_name_pattern = r'tool:\s*(\w+)'
-        self.tool_params_pattern = r'params:\s*({.*?})'
-    
+        # NOTE: params are no longer extracted with a regex (see
+        # _extract_params_json below). A non-greedy `{.*?}` silently breaks
+        # on (a) nested JSON objects in params -- stops at the first `}` --
+        # and (b) multi-line/pretty-printed JSON, since `.` doesn't match
+        # newlines without re.DOTALL. Both are realistic model outputs
+        # (nested params like {"bounds": {...}}, or a model that
+        # pretty-prints JSON), and both used to fail SILENTLY: parse_tool_call
+        # would return params={} with no error, so the tool ran with no
+        # arguments instead of the agent knowing the call failed to parse.
+
+    def _extract_params_json(self, tool_call_content: str) -> Dict[str, Any]:
+        """Find the `params: { ... }` block and extract its JSON by
+        scanning for the matching closing brace (handles nesting and
+        multi-line JSON), instead of a regex that can't balance braces."""
+        marker_match = re.search(r'params:\s*{', tool_call_content)
+        if not marker_match:
+            return {}
+
+        start = marker_match.end() - 1  # position of the opening '{'
+        depth = 0
+        i = start
+        in_string = False
+        escape = False
+        while i < len(tool_call_content):
+            ch = tool_call_content[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == '\\':
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+            else:
+                if ch == '"':
+                    in_string = True
+                elif ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        i += 1
+                        break
+            i += 1
+        else:
+            return {}  # never balanced -- truncated/malformed
+
+        raw_json = tool_call_content[start:i]
+        try:
+            return json.loads(raw_json)
+        except json.JSONDecodeError:
+            return {}
+
     def detect_tool_call(self, text: str) -> bool:
         """Check if text contains a tool call"""
         return bool(re.search(self.tool_call_pattern, text, re.DOTALL))
@@ -31,15 +82,8 @@ class ToolRouter:
         
         tool_name = tool_match.group(1)
         
-        # Extract parameters (if any)
-        params = {}
-        params_match = re.search(self.tool_params_pattern, tool_call_content)
-        if params_match:
-            import json
-            try:
-                params = json.loads(params_match.group(1))
-            except:
-                pass
+        # Extract parameters (if any) -- brace-balanced, newline-safe.
+        params = self._extract_params_json(tool_call_content)
         
         return {
             "tool_name": tool_name,
