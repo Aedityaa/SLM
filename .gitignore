@@ -1,1 +1,6 @@
 /venv
+# generated eval outputs
+backend/evals/tool_benchmark_results.json
+backend/evals/router_eval_results.json
+__pycache__/
+*.pyc

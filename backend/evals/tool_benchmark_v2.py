@@ -8,14 +8,18 @@ it tests the tool infrastructure exactly as the agent would invoke it,
 using realistic <tool_call> strings and known ground-truth answers.
 """
 import sys, os, time, json, traceback
-sys.path.insert(0, os.path.dirname(__file__))
+# NOTE: this used to insert the *evals/* directory itself, which put
+# "backend/evals/src/tools/..." on the lookup path instead of
+# "backend/src/tools/..." -- combined with the code_executor_v2 typo below,
+# this script could not even be imported (ImportError on line 1 of main).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.tools.tool_registry import tool_registry
 from src.tools.tool_router import ToolRouter
 from src.tools.sympy_solver import SymPySolver
 from src.tools.numpy_calculator import NumpyCalculator
 from src.tools.matplotlib_plotter import MatplotlibPlotter
-from src.tools.code_executor_v2 import CodeExecutor
+from src.tools.code_executor import CodeExecutor  # was src.tools.code_executor_v2, which doesn't exist
 
 # Register tools exactly as the app would
 tool_registry.register(SymPySolver())
