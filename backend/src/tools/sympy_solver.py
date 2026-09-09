@@ -1,6 +1,19 @@
-"""SymPy integration for symbolic mathematics"""
+"""SymPy integration for symbolic mathematics
+
+SECURITY NOTE: sp.sympify() falls back to Python's eval() to parse
+expressions it doesn't recognize via its normal tokenizer, and that eval is
+not sandboxed against the object-introspection escape (confirmed:
+sp.sympify("__import__('os').system(...)") executes the command). Since
+`expression` here ultimately comes from a model-emitted <tool_call>, which
+could be influenced by adversarial/injected input, we validate the string
+against the same AST whitelist used by numpy_calculator/matplotlib_plotter
+*before* it ever reaches sympify. That whitelist has no notion of "bounds"
+or "variable" -- it only needs to prove the string is plain arithmetic with
+no attribute/subscript access, so it's independent of sympy's own parsing.
+"""
 import sympy as sp
 from src.tools.base_tool import BaseTool
+from src.tools.safe_eval import validate_safe_expression, UnsafeExpressionError
 from typing import Dict, Any
 
 class SymPySolver(BaseTool):
@@ -21,6 +34,13 @@ class SymPySolver(BaseTool):
             operation: One of ['simplify', 'derivative', 'integrate', 'solve', 'expand']
             **kwargs: Additional parameters (e.g., variable='x', bounds=(0,5))
         """
+        # Reject anything outside plain arithmetic/whitelisted-call syntax
+        # BEFORE it reaches sympify's eval-based fallback parser.
+        try:
+            validate_safe_expression(expression, allow_np_attr=False)
+        except UnsafeExpressionError as e:
+            raise ValueError(f"Rejected unsafe expression: {e}") from e
+
         # Parse expression
         expr = sp.sympify(expression)
         
